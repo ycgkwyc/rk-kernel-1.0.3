@@ -1,0 +1,103 @@
+commit a4423c56f430bfc7c75dbb68d4a9a1a0ef62b371
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Fri Sep 30 15:20:20 2022 +0800
+
+    Revert "UPSTREAM: pinctrl: rockchip: fix RK3308 pinmux bits"
+    
+    This reverts commit ae7b9050a3f250a4ac02d6805127310178217167.
+
+commit 0cf34d6a2d8a6fd477661759a186ca1ce62c58ff
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Fri Sep 30 15:19:39 2022 +0800
+
+    Revert "UPSTREAM: pinctrl: rockchip: sort the rk3308_mux_recalced_data entries"
+    
+    This reverts commit f9dd52afac5f76af14408e3e38adf3cfb7a36868.
+
+commit 22acf8527f27d6a41ca3255ce2c01353f05e51d9
+Author: Yandong Lin <yandong.lin@rock-chips.com>
+Date:   Thu Aug 11 11:36:57 2022 +0800
+
+    video: rockchip: mpp: fix dec err issue for rk356x
+    
+    1. Add need_hack check for rk356x
+    2. Use cancel_delayed_work replace cancel_delayed_work_sync
+    3. Remove the operation of resetting rkvdec2 before suspend
+    
+    Signed-off-by: Yandong Lin <yandong.lin@rock-chips.com>
+    Change-Id: If826ce65fa1db164a99067bdc9ab5092474a88a3
+
+commit 5b748a4b633799af4e8c91fac73d56043e0e838d
+Author: Andy Yan <andy.yan@rock-chips.com>
+Date:   Wed Sep 28 19:52:05 2022 +0800
+
+    drm/rockchip: vop2: Restore lut after VP exit standby
+    
+    vop2_crtc_load_lut need to sync with vysnc, so we should
+    make sure the VP exit standby and setting the right dclk,
+    or we will meet a cfg done timeout:
+    
+    [drm:vop2_wait_for_fs_by_done_bit_status] *ERROR* wait vp1 done bit
+    status timeout, vcnt: 0
+    
+    Fixes: 5aa1d0e08f49 ("drm/rockchip: vop2: fix double config done at one
+    frame time")
+    
+    Change-Id: I66d1e7ba260dc376c7f7ce132dad2212649b31e8
+    Signed-off-by: Andy Yan <andy.yan@rock-chips.com>
+
+commit 344ef151f0ae5f4ff80a27401aaedcd71a24c114
+Author: Guochun Huang <hero.huang@rock-chips.com>
+Date:   Thu Sep 29 09:46:18 2022 +0000
+
+    drm/rockchip: logo: call bridge mode_set helper in rockchip_drm_show_logo
+    
+    Signed-off-by: Guochun Huang <hero.huang@rock-chips.com>
+    Change-Id: I81a9c0f05f42dd68a376b669af823c6130462df3
+
+commit fe62f31c77f743b2c4588ee20108b798413727bd
+Author: Guochun Huang <hero.huang@rock-chips.com>
+Date:   Wed Sep 28 09:22:28 2022 +0000
+
+    drm/bridge: dw-mipi-dsi: optimize configuration procss
+    
+    Change-Id: Ic242064f0b8433f8bbe8975cc7e35e1f26bf8079
+    Signed-off-by: Guochun Huang <hero.huang@rock-chips.com>
+
+commit 8143de9951af6400933d3a74be306f635909c135
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Wed Sep 28 17:10:00 2022 +0800
+
+    arm64: dts: rockchip: with pwm mode for rk3568 evb boards
+    
+    Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+
+commit c123b2bbd124ca99cfad45e3c8c06be3e4192a7d
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Thu Sep 30 15:13:36 2021 +0800
+
+    arm64: dts: rockchip: set unique possible_crtcs for rk3568_linux.dtsi
+    
+    Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+    Change-Id: If25aa8e06474473a69d1a370e3e546ecc2a6b748
+
+commit 67c2f74594cc3865bd8592e9bc1a758fdba90f3f
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Wed Sep 28 12:17:58 2022 +0800
+
+    Revert "arm64: dts: rockchip: disable afbc by default on rk3568-linux.dtsi"
+    
+    This reverts commit f3d3879b276210033e2b29882a90b01bf6f5ab3e.
+    
+    Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+
+commit 9a0f83af90ea0243218854a64bd5a0d9a66f8eeb
+Author: Caesar Wang <wxt@rock-chips.com>
+Date:   Mon Aug 8 09:31:12 2022 +0800
+
+    Revert "net: wireless: rockchip_wlan: bcmdhd: Enable CONFIG_BCMDHD_REQUEST_FW"
+    
+    This reverts commit 1659a565167493b6f10f83b21711b9e79c30c546.
+    
+    Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+    Change-Id: I33477ebb5fbb00120efaf24fce66dd90aa2bc9e1
