@@ -5333,6 +5333,7 @@ int stmmac_dvr_probe(struct device *device,
 
 #ifdef LED_FIX 
 /* register the PHY board fixup */
+/* ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, RTL_8211F_PHY_ID_MASK, phy_rtl8211f_led_fixup);*/
 ret = phy_register_fixup_for_uid(RTL_8211E_PHY_ID, 0xffffffff, phy_rtl8211e_led_fixup);
 if (ret)
 	pr_warn("Cannot register PHY board fixup.\n");
