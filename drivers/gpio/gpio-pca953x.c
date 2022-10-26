@@ -949,6 +949,11 @@ static int pca953x_probe(struct i2c_client *client,
 	u32 invert = 0;
 	struct regulator *reg;
 	const struct regmap_config *regmap_config;
+#ifdef CONFIG_FIREFLY_PCA953X
+  struct device *dev = &client->dev;
+  struct device_node *node = dev->of_node;
+  u32 gpio_group_start = 500;
+#endif
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (chip == NULL)
@@ -960,6 +965,11 @@ static int pca953x_probe(struct i2c_client *client,
 		chip->gpio_start = pdata->gpio_base;
 		invert = pdata->invert;
 		chip->names = pdata->names;
+#ifdef CONFIG_FIREFLY_PCA953X
+  } else if (!of_property_read_u32(node, "gpio-group-num", &gpio_group_start)) {
+    chip->gpio_start = gpio_group_start;
+    irq_base = 0;
+#endif
 	} else {
 		struct gpio_desc *reset_gpio;
 
@@ -1125,7 +1135,20 @@ static int pca953x_regcache_sync(struct device *dev)
 		dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
 		return ret;
 	}
-
+#ifdef CONFIG_FIREFLY_PCA953X
+  ret = regcache_sync_region(chip->regmap, chip->regs->input,
+                             chip->regs->output + NBANK(chip));
+  if (ret) {
+          dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
+          return ret;
+  }
+  ret = regcache_sync_region(chip->regmap, chip->regs->invert,
+                             chip->regs->output + NBANK(chip));
+  if (ret) {
+          dev_err(dev, "Failed to sync GPIO out registers: %d\n", ret);
+          return ret;
+  }
+#endif // CONFIG_FIREFLY_PCA953X
 #ifdef CONFIG_GPIO_PCA953X_IRQ
 	if (chip->driver_data & PCA_PCAL) {
 		ret = regcache_sync_region(chip->regmap, PCAL953X_IN_LATCH,
@@ -1149,10 +1172,44 @@ static int pca953x_regcache_sync(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_FIREFLY_PCA953X
+static u8 firefly_pca953x[PCA953X_DIRECTION][MAX_BANK];
+#endif //CONFIG_FIREFLY_PCA953X
+
 static int pca953x_suspend(struct device *dev)
 {
 	struct pca953x_chip *chip = dev_get_drvdata(dev);
 
+#ifdef CONFIG_FIREFLY_PCA953X
+  mutex_lock(&chip->i2c_lock);
+  {
+    int i,ret;
+    for(i = PCA953X_INPUT; i<= PCA953X_DIRECTION; i++){
+      u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+      u8 value[MAX_BANK];
+
+      ret = regmap_bulk_read(chip->regmap, regaddr, value, NBANK(chip));
+      if (ret < 0) {
+              dev_err(&chip->client->dev, "failed reading register\n");
+              return ret;
+      }
+      /* restore the value of firefly_pca953xxxx */
+      firefly_pca953x[i][0] = value[0];
+      firefly_pca953x[i][1] = value[1];
+      if(i == PCA953X_OUTPUT){
+        value[0] = 0x00;
+        value[1] = 0x00;
+        ret = regmap_bulk_write(chip->regmap, regaddr, value, NBANK(chip));
+
+        if (ret < 0) {
+                dev_err(&chip->client->dev, "failed writing register\n");
+                return ret;
+        }
+      }
+    }
+  }
+	mutex_unlock(&chip->i2c_lock);
+#endif // CONFIG_FIREFLY_PCA953X
 	regcache_cache_only(chip->regmap, true);
 
 	if (atomic_read(&chip->wakeup_path))
@@ -1181,12 +1238,32 @@ static int pca953x_resume(struct device *dev)
 	ret = pca953x_regcache_sync(dev);
 	if (ret)
 		return ret;
-
+#ifndef CONFIG_FIREFLY_PCA953X
 	ret = regcache_sync(chip->regmap);
 	if (ret) {
 		dev_err(dev, "Failed to restore register map: %d\n", ret);
 		return ret;
 	}
+#else // !CONFIG_FIREFLY_PCA953X
+   mutex_lock(&chip->i2c_lock);
+   {
+     int  i,ret;
+     for (i=1 ; i<= PCA953X_DIRECTION; i++){
+        u8 regaddr = pca953x_recalc_addr(chip, i, 0);
+        u8 value[MAX_BANK];
+        value[0] = firefly_pca953x[i][0];
+        value[1] = firefly_pca953x[i][1];
+        ret = regmap_bulk_write(chip->regmap, regaddr, value, NBANK(chip));
+
+        if (ret < 0) {
+                dev_err(&chip->client->dev, "failed writing register\n");
+                return ret;
+        }
+     }
+   }
+  mutex_unlock(&chip->i2c_lock);
+
+#endif // CONFIG_FIREFLY_PCA953X
 
 	return 0;
 }
