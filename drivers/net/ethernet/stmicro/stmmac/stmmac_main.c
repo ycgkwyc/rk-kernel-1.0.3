@@ -126,6 +126,9 @@ static void stmmac_exit_fs(struct net_device *dev);
 #define RTL_8201F_PHY_ID  0x001cc816
 #define RTL_8211E_PHY_ID  0x001cc915
 #define RTL_8211F_PHY_ID  0x001cc916
+#define RTL_8211F_PHY_ID_MASK 0x001fffff
+#define RTL_8211F_PAGE_SELECT 0x1f
+#define RTL_8211F_LCR_ADDR 0x10
 #define DP_83848_PHY_ID   0x20005c90
 #endif
 
