@@ -5335,29 +5335,10 @@ int stmmac_dvr_probe(struct device *device,
 /* register the PHY board fixup */
 /* ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, RTL_8211F_PHY_ID_MASK, phy_rtl8211f_led_fixup);*/
 ret = phy_register_fixup_for_uid(RTL_8211E_PHY_ID, 0xffffffff, phy_rtl8211e_led_fixup);
-if (ret)
-	pr_warn("Cannot register PHY board fixup.\n");
-ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
-if (ret)
-	pr_warn("Cannot register PHY board fixup.\n");
-ret = phy_register_fixup_for_uid(RTL_8201F_PHY_ID, 0xffffffff, phy_rtl8201f_led_fixup);
-if (ret)
-	pr_warn("Cannot register PHY board fixup.\n");
-ret = phy_register_fixup_for_uid(DP_83848_PHY_ID, 0xffffffff, phy_dp83848_led_fixup);
-if (ret)
-	pr_warn("Cannot register PHY board fixup.\n");
-#endif
-
-#ifdef CONFIG_DEBUG_FS
-	stmmac_init_fs(ndev);
-#endif
-
-	/* Let pm_runtime_put() disable the clocks.
-	 * If CONFIG_PM is not enabled, the clocks will stay powered.
-	 */
-	pm_runtime_put(device);
-
-	return ret;
+if (ret)  {
+	dev_warn(priv->device, "Cannot register PHY board fixup, terry in :%s.\n", __func__);
+}	
+return ret;
 
 error_serdes_powerup:
 	unregister_netdev(ndev);
