@@ -126,11 +126,7 @@ static void stmmac_exit_fs(struct net_device *dev);
 #define RTL_8201F_PHY_ID  0x001cc816
 #define RTL_8211E_PHY_ID  0x001cc915
 #define RTL_8211F_PHY_ID  0x001cc916
-#define RTL_8211F_PHY_ID_MASK  0x001fffff
-#define RTL_8211F_PAGE_SELECT  0x1f
-#define RTL_8211F_LCR_ADDR  0x10
-#define RTL_8211F_EEELCR_ADDR  0x11
-#define DP_83848_PHY_ID  0x20005c90
+#define DP_83848_PHY_ID   0x20005c90
 #endif
 
 int stmmac_bus_clks_config(struct stmmac_priv *priv, bool enabled)
@@ -5061,32 +5057,23 @@ static int phy_rtl8211e_led_fixup(struct phy_device *phydev)
 
 static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
 {
-           	  
-       u32 val, val2;  
-	   
-       pr_info("terry in : %s\n", __func__);
-	   
-       /*switch to page0xd04*/
-       phy_write(phydev, RTL_8211F_PAGE_SELECT, 0xd04);
-      
-       /*set led1(green) Link 10/100/1000M, and set led2(yellow) Link 10/100/1000M+Active*/
-       val = phy_read(phydev, RTL_8211F_LCR_ADDR);
-       val |= (1<<5);
-       val |= (1<<8);
-       val &= (~(1<<9));
-       val |= (1<<10);
-       val |= (1<<11);
-       phy_write(phydev, RTL_8211F_LCR_ADDR, val);	      
-	  
-       /*set led1(green) EEE LED function disabled so it can keep on when linked*/
-       val2 = phy_read(phydev, RTL_8211F_EEELCR_ADDR);
-       val2 &= (~(1<<2));
-       phy_write(phydev, RTL_8211F_EEELCR_ADDR, val2);  
- 
-       /*switch back to page0*/
-       phy_write(phydev,RTL_8211F_PAGE_SELECT, 0xa42);
- 
-       return 0;
+	int val;
+
+	printk("%s in\n", __func__);
+
+	val = phy_read(phydev, 31);
+	printk("%s in  val=0x%04x\n", __func__, val);
+	
+	/*switch to extension page31*/
+	phy_write(phydev, 31, 0xd04);
+
+	phy_write(phydev, 16, 0xC171);  /*led1-green led2-yellow       0x6f60 */
+
+
+	/*switch back to page0*/
+	phy_write(phydev,31,0x0);
+
+	return 0;
 }
 #endif
 
@@ -5333,12 +5320,30 @@ int stmmac_dvr_probe(struct device *device,
 
 #ifdef LED_FIX 
 /* register the PHY board fixup */
-/* ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, RTL_8211F_PHY_ID_MASK, phy_rtl8211f_led_fixup);*/
 ret = phy_register_fixup_for_uid(RTL_8211E_PHY_ID, 0xffffffff, phy_rtl8211e_led_fixup);
-if (ret)  {
-	dev_warn(priv->device, "Cannot register PHY board fixup, terry in :%s.\n", __func__);
-}	
-return ret;
+if (ret)
+	pr_warn("Cannot register PHY board fixup.\n");
+ret = phy_register_fixup_for_uid(RTL_8211F_PHY_ID, 0xffffffff, phy_rtl8211f_led_fixup);
+if (ret)
+	pr_warn("Cannot register PHY board fixup.\n");
+ret = phy_register_fixup_for_uid(RTL_8201F_PHY_ID, 0xffffffff, phy_rtl8201f_led_fixup);
+if (ret)
+	pr_warn("Cannot register PHY board fixup.\n");
+ret = phy_register_fixup_for_uid(DP_83848_PHY_ID, 0xffffffff, phy_dp83848_led_fixup);
+if (ret)
+	pr_warn("Cannot register PHY board fixup.\n");
+#endif
+
+#ifdef CONFIG_DEBUG_FS
+	stmmac_init_fs(ndev);
+#endif
+
+	/* Let pm_runtime_put() disable the clocks.
+	 * If CONFIG_PM is not enabled, the clocks will stay powered.
+	 */
+	pm_runtime_put(device);
+
+	return ret;
 
 error_serdes_powerup:
 	unregister_netdev(ndev);
