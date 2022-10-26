@@ -5063,10 +5063,12 @@ static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
 	u32 val;
 	val = 0x6171;     
 
-+       pr_info("terry in : %s\n", __func__);
+        pr_info("terry in : %s\n", __func__);
 
+        /*
 	val = phy_read(phydev, 31);
 	printk("%s in  val=0x%04x\n", __func__, val);
+	*/
 
         /*switch to page0xd04*/
         phy_write(phydev, RTL_8211F_PAGE_SELECT, 0xd04);
@@ -5076,10 +5078,12 @@ static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
 
         /*switch back to page0*/
         phy_write(phydev,RTL_8211F_PAGE_SELECT, 0xa42);
-	phy_write(phydev, 16, 0xC171);  /*led1-green led2-yellow       0x6f60 */
+	
+	/*led1-green led2-yellow 0x6f60 */
+        /*phy_write(phydev, 16, 0xC171);*/
 
 	/*switch back to page0*/
-	phy_write(phydev,31,0x0);
+	/*phy_write(phydev,31,0x0);*/
 
 	return 0;
 }
