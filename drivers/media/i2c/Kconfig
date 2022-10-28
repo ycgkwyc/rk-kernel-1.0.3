@@ -1302,6 +1302,13 @@ config VIDEO_JX_K17
 	  To compile this driver as a module, choose M here: the
 	  module will be called jx_k17.
 
+config VIDEO_XC7160
+   tristate "Firefly XC7160 support."
+   depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+   depends on MEDIA_CAMERA_SUPPORT
+   help
+     Driver for sv-taysh camera.This camera consists of ISP xc7160 and sensor sc8238
+
 config VIDEO_OS02G10
 	tristate "OmniVision OS02G10 sensor support"
 	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API

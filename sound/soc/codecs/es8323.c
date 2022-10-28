@@ -25,6 +25,9 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <linux/proc_fs.h>
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+#include <sound/jack.h>
+#endif
 #include "es8323.h"
 
 #define NR_SUPPORTED_MCLK_LRCK_RATIOS 5
@@ -93,6 +96,13 @@ struct es8323_priv {
 	struct snd_pcm_hw_constraint_list sysclk_constraints;
 	struct snd_soc_component *component;
 	struct regmap *regmap;
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+#define RECOVER_TIME 500
+  int mute;
+  unsigned long last_jack_status;
+  struct delayed_work recovery_work;
+  void (*firefly_multicodecs_control_gpio) (int sound_mute);
+#endif
 };
 
 static int es8323_reset(struct snd_soc_component *component)
@@ -614,8 +624,18 @@ static int es8323_pcm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+void firefly_set_mute(struct snd_soc_component *component, int mute);
+#endif
+
 static int es8323_mute(struct snd_soc_dai *dai, int mute, int stream)
 {
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+  struct snd_soc_component *component = dai->component;
+  struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
+  es8323->mute = mute;
+  firefly_set_mute(component, mute);
+#endif
 	return 0;
 }
 
@@ -808,6 +828,90 @@ static void es8323_remove(struct snd_soc_component *component)
 	es8323_set_bias_level(component, SND_SOC_BIAS_OFF);
 }
 
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+#define SND_JACK_INPUT_LINE_1 0x40
+#define SND_JACK_INPUT_LINE_2 0x80
+#define SND_JACK_INPUT_LINE_DIFFER (SND_JACK_INPUT_LINE_1|SND_JACK_INPUT_LINE_2)
+struct es8323_priv *es8323_param;
+
+void firefly_set_mute(struct snd_soc_component *component, int mute) {
+  struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
+  if (!es8323->firefly_multicodecs_control_gpio)
+    return;
+  if (mute) {
+		snd_soc_component_write(component, ES8323_DACCONTROL3, 0x06);
+    es8323->firefly_multicodecs_control_gpio(mute);
+  } else {
+    es8323->firefly_multicodecs_control_gpio(mute);
+		snd_soc_component_write(component,ES8323_DACCONTROL3,0x02);
+  }
+}
+
+void switch_line1(struct snd_soc_component *component) {
+  snd_soc_component_write(component, ES8323_ADCCONTROL2, 0x00);
+  snd_soc_component_write(component, ES8323_ADCCONTROL3, 0x02);
+}
+
+void switch_line2(struct snd_soc_component *component) {
+  snd_soc_component_write(component, ES8323_ADCCONTROL2, 0x50);
+  snd_soc_component_write(component, ES8323_ADCCONTROL3, 0x82);
+}
+
+void switch_linediff(struct snd_soc_component *component) {
+  snd_soc_component_write(component, ES8323_ADCCONTROL2, 0xf0);
+  snd_soc_component_write(component, ES8323_ADCCONTROL3, 0x82);
+}
+
+static int rk_jack_event(struct notifier_block *nb, unsigned long event,
+       void *data) {
+  struct es8323_priv *es8323 = es8323_param;
+  struct snd_soc_component *component = es8323->component;
+  if ((event & SND_JACK_LINEOUT) != (es8323->last_jack_status & SND_JACK_LINEOUT)) {
+    firefly_set_mute(component, 1);
+    cancel_delayed_work(&es8323->recovery_work);
+    queue_delayed_work(system_freezable_wq, &es8323->recovery_work, msecs_to_jiffies(RECOVER_TIME));
+  }
+  if (event & SND_JACK_INPUT_LINE_DIFFER) {
+    switch(event) {
+      case SND_JACK_INPUT_LINE_1:
+        switch_line1(component);
+        break;
+      case SND_JACK_INPUT_LINE_2:
+        switch_line2(component);
+        break;
+      default:
+        switch_linediff(component);
+    }
+  }else{
+    es8323->last_jack_status = event;
+  }
+  return 0;
+}
+
+static void recovery_mute(struct work_struct *work) {
+  struct delayed_work *dwork = to_delayed_work(work);
+  struct es8323_priv *es8323 = container_of(dwork, struct es8323_priv,
+																						recovery_work);
+  struct snd_soc_component *component = es8323->component;
+  firefly_set_mute(component, es8323->mute);
+}
+
+static struct notifier_block rk_jack_nb = {
+  .notifier_call = rk_jack_event,
+};
+
+static int es8323_firefly_set_jack(struct snd_soc_component *component,
+                struct snd_soc_jack *jack,  void *data) {
+  struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
+  es8323->firefly_multicodecs_control_gpio = data;
+  es8323_param = es8323;
+  snd_soc_jack_notifier_register(jack, &rk_jack_nb);
+  INIT_DELAYED_WORK(&es8323->recovery_work, recovery_mute);
+  return 0;
+}
+
+#endif
+
 static const struct snd_soc_component_driver soc_codec_dev_es8323 = {
 	.probe = es8323_probe,
 	.remove = es8323_remove,
@@ -820,6 +924,9 @@ static const struct snd_soc_component_driver soc_codec_dev_es8323 = {
 	.num_dapm_routes	= ARRAY_SIZE(audio_map),
 	.controls		= es8323_snd_controls,
 	.num_controls		= ARRAY_SIZE(es8323_snd_controls),
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+  .set_jack = es8323_firefly_set_jack,
+#endif // CONFIG_SND_SOC_FIREFLY_MULTICODECS
 };
 
 static const struct regmap_config es8323_regmap_config = {
@@ -872,6 +979,11 @@ static int es8323_i2c_probe(struct i2c_client *i2c,
 
 static int es8323_i2c_remove(struct i2c_client *client)
 {
+#ifdef CONFIG_SND_SOC_FIREFLY_MULTICODECS
+  struct es8323_priv *es8323 = i2c_get_clientdata(client);
+  cancel_delayed_work_sync(&es8323->recovery_work);
+  es8323_param = NULL;
+#endif
 	snd_soc_unregister_component(&client->dev);
 	return 0;
 }
